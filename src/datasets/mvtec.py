@@ -31,7 +31,6 @@ TEXTURES = ['carpet', 'grid', 'leather', 'tile', 'wood']
 class MVtecDataset(Dataset):
     def __init__(self, root_dir: str, transform=None):
         self.root_dir = root_dir
-        # self.transform = transform
         self.transform = transforms.Resize(
             (224, 224), interpolation=transforms.InterpolationMode.BICUBIC
         )
@@ -43,13 +42,13 @@ class MVtecDataset(Dataset):
                 )
         ])
         self.paths = []
-        self.img_normals = []
+        # self.img_normals = []
         for root, _, files in os.walk(root_dir):
             for file in files:
                 file_path = os.path.join(root, file)
                 if "train" in file_path and "good" in file_path and 'png' in file:
                     self.paths.append(file_path)
-                    self.img_normals.append(self.transform(Image.open(file_path).convert('RGB')))
+                    # self.img_normals.append(self.transform(Image.open(file_path).convert('RGB')))
 
         self.prev_idx = np.random.randint(len(self.paths))
         
@@ -57,7 +56,9 @@ class MVtecDataset(Dataset):
         return len(self.paths) 
 
     def __getitem__(self, index):
-        img_path, img_normal = self.paths[index], self.img_normals[index]
+        # img_path, img_normal = self.paths[index], self.img_normals[index]
+        img_path = self.paths[index]
+        img_normal = self.transform(Image.open(img_path).convert('RGB'))
         class_name = img_path.split('/')[-4]
         
         self_sup_args={
@@ -78,20 +79,23 @@ class MVtecDataset(Dataset):
             
         img_normal = np.asarray(img_normal)
         
-        prev = self.img_normals[self.prev_idx]
+        prev = Image.open(self.paths[self.prev_idx]).convert('RGB')
         if self.transform is not None:
             prev = self.transform(prev)
         prev = np.asarray(prev)    
         
         img_abnormal, mask = patch_ex(img_normal, prev, **self_sup_args)
         mask = torch.tensor(mask[None, ..., 0]).float()
-        mask[mask > 0.3], mask[mask <= 0.3] = 1, 0
+        mask[mask > 0.15], mask[mask <= 0.15] = 1, 0
         
         self.prev_idx = index
-        
+
         img_normal = self.norm_transform(img_normal.copy())
         img_abnormal = self.norm_transform(img_abnormal.copy())
         
+        if np.all(mask.numpy() == 0.0):
+            img_abnormal = img_normal
+
         return img_normal, img_abnormal, mask, img_path
     
     def collate(self, instances):
