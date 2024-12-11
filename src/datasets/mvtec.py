@@ -42,13 +42,11 @@ class MVtecDataset(Dataset):
                 )
         ])
         self.paths = []
-        # self.img_normals = []
         for root, _, files in os.walk(root_dir):
             for file in files:
                 file_path = os.path.join(root, file)
                 if "train" in file_path and "good" in file_path and 'png' in file:
                     self.paths.append(file_path)
-                    # self.img_normals.append(self.transform(Image.open(file_path).convert('RGB')))
 
         self.prev_idx = np.random.randint(len(self.paths))
         
@@ -56,7 +54,6 @@ class MVtecDataset(Dataset):
         return len(self.paths) 
 
     def __getitem__(self, index):
-        # img_path, img_normal = self.paths[index], self.img_normals[index]
         img_path = self.paths[index]
         img_normal = self.transform(Image.open(img_path).convert('RGB'))
         class_name = img_path.split('/')[-4]
