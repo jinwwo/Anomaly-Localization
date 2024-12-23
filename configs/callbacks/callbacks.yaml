@@ -1,0 +1,15 @@
+checkpoint:
+  monitor: "val_image_auc"
+  mode: "max"
+  dirpath: ".checkpoint_focal/"
+  filename: "SwinT-{epoch:02d}-{val_image_auc:.4f}"
+  save_top_k: 1
+  save_last: true
+
+early_stopping:
+  monitor: "val_image_auc"
+  mode: "max"
+  patience: 5
+
+lr_monitor:
+  logging_interval: "epoch"

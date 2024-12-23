@@ -1,0 +1,8 @@
+project_name: "focal"
+experiment_name: "base_experiment"
+max_epochs: 10
+learning_rate: 1e-4
+optimizer: "adam"
+clustering: "k_means"
+max_samples: 1000
+layers_to_extract: "0,1,2"
