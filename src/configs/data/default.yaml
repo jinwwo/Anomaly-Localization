@@ -1,5 +1,0 @@
-test_subset_size: 0
-train_ratio: 0.8
-batch_size: 4
-seed: 42
-root_dir: "/home/jinuman/AD/anomaly-detection/AnomalyGPT/data/mvtec_anomaly_detection"

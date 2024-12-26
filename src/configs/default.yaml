@@ -1,7 +1,0 @@
-defaults:
-  - _self_
-  - key
-  - data: default
-  - experiment: default
-  - model: swin
-  - callbacks: default
