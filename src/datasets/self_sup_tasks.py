@@ -12,6 +12,10 @@ def patch_ex(ima_dest, ima_src=None, same=False, num_patches=1,
              resize_bounds=(0.7, 1.3), num_ellipses=None, verbose=True, cutpaste_patch_generation=False):
     """
     Create a synthetic training example from the given images by pasting/blending random patches.
+
+    This function is based on code from the Natural Synthetic Anomalies repository:
+    - https://github.com/hmsch/natural-synthetic-anomalies
+
     Args:
         ima_dest (uint8 numpy array): image with shape (W,H,3) or (W,H,1) where patch should be changed
         ima_src (uint8 numpy array): optional, otherwise use ima_dest as source
