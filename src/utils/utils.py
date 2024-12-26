@@ -1,7 +1,51 @@
+import os
+from typing import Any, Dict, List, Union
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from typing import List, Union
+from omegaconf import DictConfig, OmegaConf
+
+
+def to_yaml(target: DictConfig) -> None:
+    """
+    Save a `DictConfig` configuration object to a YAML file.
+
+    This function converts a `DictConfig` object to a YAML format string and prints it.
+    It also saves the configuration to a YAML file in the `configs/experiment` directory,
+    with a filename based on the `experiment_name` and `learning_rate` attributes of the `DictConfig` object.
+
+    Args:
+        target (DictConfig): The configuration object to convert and save.
+    """
+    print(OmegaConf.to_yaml(target))
+
+    output_dir = os.getcwd() + '/configs/experiment'
+    yaml_filename = f"{target.experiment_name}_lr_{target.learning_rate}.yaml"
+    yaml_path = os.path.join(output_dir, yaml_filename)
+
+    with open(yaml_path, "w") as f:
+        f.write(OmegaConf.to_yaml(target))
+
+    print(f"Config saved to: {yaml_path}")
+
+
+def to_container(target: DictConfig, resolve: bool = True) -> Dict[str, Any]:
+    """
+    Convert a `DictConfig` object to a Python dictionary.
+
+    This function converts an OmegaConf `DictConfig` object to a standard Python dictionary.
+    By default, it resolves interpolations in the configuration during the conversion process.
+
+    Args:
+        target (DictConfig): The configuration object to convert.
+        resolve (bool, optional): Whether to resolve interpolations in the `DictConfig` during conversion.
+                                  Defaults to `True`.
+
+    Returns:
+        Dict[str, Any]: The converted dictionary representation of the `DictConfig`.
+    """
+    return OmegaConf.to_container(target, resolve=resolve)
 
 
 def tensor_to_np(tensor: torch.Tensor) -> np.ndarray:
