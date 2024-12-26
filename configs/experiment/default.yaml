@@ -1,6 +1,4 @@
-project_name: "focal"
-experiment_name: "base_experiment"
-max_epochs: 10
+max_epochs: 50
 learning_rate: 1e-4
 optimizer: "adam"
 clustering: "k_means"
