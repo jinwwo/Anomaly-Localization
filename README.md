@@ -15,7 +15,7 @@ This repository provides a framework for **Industrial Anomaly Detection and Loca
 
 ## Introduction
 <div align="center">
-  <img width="727" alt="Model Architecture" src="https://github.com/user-attachments/assets/80f7cd36-90ff-40eb-b7e7-52de3ae82a13" />
+  <img width="639" alt="model_architecture" src="https://github.com/user-attachments/assets/4063a62a-73a4-4938-bbeb-4900de64c373" />
   <p>Model Architecture Diagram</p>
 </div>
 
