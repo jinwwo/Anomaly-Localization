@@ -1,0 +1,3 @@
+defaults: [ default ]
+
+learning_rate: 3e-5
