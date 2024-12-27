@@ -7,8 +7,8 @@ import lightning as L
 import torch
 from torch.utils.data import DataLoader, Subset
 
-from datasets.hk import HKTestDoc
-from lightning_models import FewShotLightning
+from .datasets.mvtec import MVtecDataset
+from .lightning_models import FewShotLightning
 
 
 def set_cuda_devices(device_ids: str) -> str:
@@ -56,8 +56,9 @@ def parse_args() -> argparse.Namespace:
             Test pretrained few-shot anomaly detection model
         """
     )
-    parser.add_argument('--model_name', type=str, default=None, help="Feature encoder name", required=False)
+    parser.add_argument('--model_name', type=str, default=None, required=False, help="Feature encoder name")
     parser.add_argument('--batch_size', type=int, default=1, help="Input batch size")
+    parser.add_argument('--max_samples', type=int, default=None, required=False, help="data subset size")
     parser.add_argument('--output', type=str, default='./fs_output', help="Output directory")
     parser.add_argument('--dataset', type=str, help="Dataset directory")
     parser.add_argument('--device', type=str, help="List of GPU IDs to use, e.g., '0,1,2,3'")
@@ -89,13 +90,15 @@ def test() -> None:
     args = parse_args()
     num_gpus = len(args.device.split(","))
 
-    dataset = HKTestDoc(root_dir=args.dataset)
+    dataset = MVtecDataset(root_dir=args.dataset)
     model = FewShotLightning(args)
-    subset_indices = list(range(10))
-    dataset_sub = Subset(dataset, subset_indices)    
+
+    if args.max_samples:
+        subset_indices = list(range(args.max_samples))
+        dataset = Subset(dataset, subset_indices)    
 
     dataloader = DataLoader(
-        dataset_sub, 
+        dataset,
         batch_size=args.batch_size, 
         num_workers=4,
         collate_fn=dataset.collate,
@@ -114,5 +117,5 @@ def test() -> None:
     gc.collect()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test()
