@@ -4,18 +4,19 @@ import lightning as L
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import wandb
 from hdbscan import HDBSCAN
-from torch_kmeans import KMeans
-from torch_kmeans.utils.distances import CosineSimilarity
-
-from models.swin_transformer import SwinTransformer
-from utils.loss import BinaryDiceLoss, FocalLoss, InfoNCELoss
-from utils.metric import MetricsComputer
 from omegaconf import DictConfig
 from torch.optim import Adam, AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-    
+from torch_kmeans import KMeans
+from torch_kmeans.utils.distances import CosineSimilarity
+
+import wandb
+
+from .models.swin_transformer import SwinTransformer
+from .utils.loss import BinaryDiceLoss, FocalLoss, InfoNCELoss
+from .utils.metric import MetricsComputer
+
 
 class FOCALightning(L.LightningModule):
     """
@@ -123,9 +124,7 @@ class FOCALightning(L.LightningModule):
             cluster = cluster.view(features_merged.shape[1:3])[None, :, :, None] # (1, H, W, 1)
             results.append(cluster)
 
-        # Metric (f1, IOU) and logging (wandb)            
         anomaly_map = torch.cat(results, dim=0).permute(0, 3, 1, 2) # (B, 1, H, W)
-        masks # (B, 1, H, W)
 
         masks_flat = masks.view(masks.size(0), -1).cpu().numpy()
         anomaly_map_flat = anomaly_map.view(anomaly_map.size(0), -1).cpu().numpy()
@@ -151,7 +150,7 @@ class FOCALightning(L.LightningModule):
 
         return metrics
 
-    def _init_clustering(self, cfg: DictConfig) -> Any:
+    def _init_clustering(self, cfg: DictConfig) -> Union[KMeans, HDBSCAN]:
         """
         Initialize the clustering method based on experiment settings.
 
@@ -159,7 +158,7 @@ class FOCALightning(L.LightningModule):
             cfg (Any): Configuration object containing clustering settings.
 
         Returns:
-            Any: Clustering algorithm instance.
+            Union[KMeans, HDBSCAN]: Clustering algorithm instance.
         """
         if cfg.clustering == 'k_means':
             return KMeans(n_clusters=2, verbose=False)
@@ -295,7 +294,8 @@ class FewShotLightning(L.LightningModule):
         self.args = args
         self.encoder = SwinTransformer(
             model_name=args.model_name,
-            pretrained=True
+            pretrained=True,
+            features_only=True
         )
         
     def forward(self, x):

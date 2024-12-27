@@ -1,6 +1,8 @@
+from typing import Optional
+
 import timm
 import torch.nn as nn
-from typing import Optional, Tuple
+
 
 class SwinTransformer(nn.Module):
     """
