@@ -1,21 +1,40 @@
-import numpy as np
-import cv2
 import sys
-from skimage.morphology import disk
+from typing import Optional, Tuple, Union
+
+import cv2
+import numpy as np
 from skimage.filters import median
+from skimage.morphology import disk
 
 
-def patch_ex(ima_dest, ima_src=None, same=False, num_patches=1,
-             mode=cv2.NORMAL_CLONE, width_bounds_pct=((0.05,0.2),(0.05,0.2)), min_object_pct=0.25, 
-             min_overlap_pct=0.25, shift=True, label_mode='binary', skip_background=None, tol=1, resize=True,
-             gamma_params=None, intensity_logistic_params=(1/6, 20),
-             resize_bounds=(0.7, 1.3), num_ellipses=None, verbose=True, cutpaste_patch_generation=False):
+def patch_ex(
+    ima_dest: np.ndarray,
+    ima_src: Optional[np.ndarray] = None,
+    same: bool = False,
+    num_patches:int = 1,
+    mode=cv2.NORMAL_CLONE,
+    width_bounds_pct: Tuple[Tuple[float, float], Tuple[float, float]] = ((0.05,0.2),(0.05,0.2)), 
+    min_object_pct: float = 0.25, 
+    min_overlap_pct: float = 0.25,
+    shift: bool = True,
+    label_mode: str = 'binary', 
+    skip_background:  Optional[Union[Tuple[int, int], list]] = None, 
+    tol:int = 1, 
+    resize: bool = True,
+    gamma_params: Optional[Tuple[float, float, float]] = None, 
+    intensity_logistic_params: Tuple[float, float] = (1/6, 20),
+    resize_bounds: Tuple[float, float] = (0.7, 1.3),
+    num_ellipses: Optional[int] = None, 
+    verbose: bool = True, 
+    cutpaste_patch_generation: bool = False,
+    random_seed: Optional[int] = None
+) ->  Tuple[np.ndarray, np.ndarray]:
     """
     Create a synthetic training example from the given images by pasting/blending random patches.
-
+    
     This function is based on code from the Natural Synthetic Anomalies repository:
     - https://github.com/hmsch/natural-synthetic-anomalies
-
+    
     Args:
         ima_dest (uint8 numpy array): image with shape (W,H,3) or (W,H,1) where patch should be changed
         ima_src (uint8 numpy array): optional, otherwise use ima_dest as source
@@ -44,6 +63,9 @@ def patch_ex(ima_dest, ima_src=None, same=False, num_patches=1,
                         2. determine the aspect ratio by sampling from (0.3, 1) union (1, 3.3)
                         3. sample location such that patch is contained entirely within the image
     """
+    if random_seed is not None:
+        np.random.seed(random_seed)
+        
     if mode == 'mix':
         mode = (cv2.NORMAL_CLONE, cv2.MIXED_CLONE)[np.random.randint(2)]
 
@@ -112,8 +134,53 @@ def patch_ex(ima_dest, ima_src=None, same=False, num_patches=1,
     return patchex, label
 
 
-def _patch_ex(ima_dest, ima_src, dest_object_mask, src_object_mask, mode, label_mode, shift, resize, width_bounds_pct, 
-              gamma_params, min_object_pct, min_overlap_pct, factor, resize_bounds, num_ellipses, verbose, cutpaste_patch_generation):
+def _patch_ex(
+    ima_dest: np.ndarray,
+    ima_src: np.ndarray,
+    dest_object_mask: Optional[np.ndarray],
+    src_object_mask: Optional[np.ndarray],
+    mode: Union[int, str],
+    label_mode: str,
+    shift: bool,
+    resize: bool,
+    width_bounds_pct: Tuple[Tuple[float, float], Tuple[float, float]],
+    gamma_params: Optional[Tuple[float, float, float]],
+    min_object_pct: float,
+    min_overlap_pct: float,
+    factor: float,
+    resize_bounds: Tuple[float, float],
+    num_ellipses: Optional[int],
+    verbose: bool,
+    cutpaste_patch_generation: bool
+) -> Tuple[np.ndarray, Tuple[Tuple[int, int], Tuple[int, int]], Optional[np.ndarray]]:
+    """
+    Generate a patch and apply it to a destination image.
+
+    Args:
+        ima_dest (np.ndarray): Destination image (H, W, C) or (H, W, 1).
+        ima_src (np.ndarray): Source image (H, W, C) or (H, W, 1).
+        dest_object_mask (Optional[np.ndarray]): Mask of the object in the destination image. Can be None.
+        src_object_mask (Optional[np.ndarray]): Mask of the object in the source image. Can be None.
+        mode (Union[int, str]): Blending mode (e.g., cv2.NORMAL_CLONE or 'uniform').
+        label_mode (str): Label mode ('binary', 'continuous', etc.).
+        shift (bool): Whether to shift the patch randomly.
+        resize (bool): Whether to resize the patch.
+        width_bounds_pct (Tuple[Tuple[float, float], Tuple[float, float]]): Bounds for patch size as a fraction of the image dimensions.
+        gamma_params (Optional[Tuple[float, float, float]]): Parameters for gamma distribution (shape, scale, offset). Can be None.
+        min_object_pct (float): Minimum fraction of the patch that contains an object.
+        min_overlap_pct (float): Minimum fraction of overlap between the source and destination object masks.
+        factor (float): Intensity factor for blending.
+        resize_bounds (Tuple[float, float]): Bounds for resizing the patch.
+        num_ellipses (Optional[int]): Number of ellipses to draw in the patch mask. Can be None.
+        verbose (bool): Whether to print debug information.
+        cutpaste_patch_generation (bool): Whether to use CutPaste patch generation.
+
+    Returns:
+        Tuple[np.ndarray, Tuple[Tuple[int, int], Tuple[int, int]], Optional[np.ndarray]]:
+            - Patched image (`np.ndarray`).
+            - Patch bounding box coordinates (`Tuple[Tuple[int, int], Tuple[int, int]]`).
+            - Patch mask (`Optional[np.ndarray]`).
+    """
     if cutpaste_patch_generation:
         skip_background = False
         dims = np.array(ima_dest.shape)

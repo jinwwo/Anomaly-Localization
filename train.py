@@ -1,21 +1,22 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import hydra
 import lightning as L
 import torch
-import wandb
 from lightning.pytorch.callbacks import (EarlyStopping, LearningRateMonitor,
                                          ModelCheckpoint)
 from lightning.pytorch.loggers import WandbLogger
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, Subset, random_split
 
-from datasets.mvtec import MVtecDataset
-from lightning_models import FOCALightning
-from utils.utils import to_container, to_yaml
+import wandb
+
+from .datasets.mvtec import MVtecDataset
+from .lightning_models import FOCALightning
+from .utils.utils import to_container
 
 
-def prepare_dataset(cfg: DictConfig):
+def prepare_dataset(cfg: DictConfig) -> Tuple[DataLoader, DataLoader]:
     """Prepare train and validation DataLoaders."""
     dataset = MVtecDataset(root_dir=cfg.data.root_dir)
     collate_fn = dataset.collate if isinstance(dataset, MVtecDataset) else None
@@ -51,7 +52,7 @@ def prepare_dataset(cfg: DictConfig):
     return train_loader, valid_loader
 
 
-def prepare_callbacks(cfg: DictConfig) -> list:
+def prepare_callbacks(cfg: DictConfig) -> List[L.Callback]:
     """Prepare Lightning callbacks."""
     checkpoint_callback = ModelCheckpoint(**to_container(cfg.callbacks.checkpoint))
     earlystopping_callback = EarlyStopping(**to_container(cfg.callbacks.early_stopping))
@@ -69,7 +70,7 @@ def prepare_logger(cfg: DictConfig) -> WandbLogger:
 
 
 @hydra.main(version_base=None, config_path="configs", config_name="default")
-def main(cfg: DictConfig):
+def main(cfg: DictConfig) -> None:
     """Main training function."""
     train_loader, valid_loader = prepare_dataset(cfg)
 

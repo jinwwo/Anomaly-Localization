@@ -77,7 +77,6 @@ class MVtecDataset(Dataset):
         self,
         root_dir: str,
         transform: Optional[Any] = None,
-        # random_seed: Optional[int] = None,
     ) -> None:
         """
         Args:
@@ -86,7 +85,6 @@ class MVtecDataset(Dataset):
             random_seed (Optional[int]): Random seed for reproducibility. Defaults to None.
         """
         self.root_dir = root_dir
-        # self.random_seed = random_seed
         self.transform = transforms.Resize(
             (224, 224), interpolation=transforms.InterpolationMode.BICUBIC
         )
