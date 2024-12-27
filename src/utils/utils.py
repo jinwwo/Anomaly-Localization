@@ -1,10 +1,25 @@
 import os
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from omegaconf import DictConfig, OmegaConf
+
+
+def login_wandb(key: Optional[str] = None) -> bool:
+    """
+    Log in to Weights & Biases (wandb) using an API key.
+
+    Args:
+        key (Optional[str]): The API key for logging in. If None, uses the existing login credentials.
+
+    Returns:
+        bool: True if login was successful, False otherwise.
+    """
+    import wandb
+
+    return wandb.login(key=key)
 
 
 def to_yaml(target: DictConfig) -> None:
