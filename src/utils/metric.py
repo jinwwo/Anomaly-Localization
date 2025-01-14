@@ -1,107 +1,216 @@
 import numpy as np
-from sklearn.metrics import f1_score, jaccard_score, roc_auc_score
+import torch
 
 
-class MetricsComputer:
+class MetricComputer:
     """
-    A class for computing various evaluation metrics for binary classification problems, 
-    particularly for image and pixel-level anomaly detection tasks.
+    A class to compute evaluation metrics for binary classification tasks 
+    such as segmentation, including F1-score and IoU. Supports both batch-level 
+    and sample-level threshold optimization.
     """
-    def __init__(self, threshold: float = 0.5) -> None:
+    def compute_f1_score(
+        self, pred: torch.Tensor, mask: torch.Tensor, threshold: float
+    ) -> float:
         """
-        Initialize the MetricsComputer with a threshold for binary classification.
-
+        Compute F1-score between predicted and ground truth masks.
         Args:
-            threshold (float): The threshold for binarizing anomaly maps. Default is 0.5.
-        """
-        self.threshold = threshold
-
-    def compute_image_auc(self, i_pred: np.ndarray, i_label: np.ndarray) -> float:
-        """
-        Compute the Image-level Area Under the Curve (AUC) score.
-
-        Args:
-            i_pred (np.ndarray): Predicted scores or probabilities for images. Shape (N,).
-            i_label (np.ndarray): Ground truth labels for images. Shape (N,).
-
+            pred: torch.Tensor (C, H, W)
+            mask: torch.Tensor (C, H, W)
+            threshold: float - Threshold to binarize predictions.
         Returns:
-            float: Image-level AUC score.
+            float: F1-score.
         """
-        return roc_auc_score(i_label, i_pred)
+        pred_binary = (pred > threshold).float()
+        mask_binary = mask.float()
 
-    def compute_pixel_auc(self, masks_flat: np.ndarray, anomaly_map_flat: np.ndarray) -> float:
+        tp = (pred_binary * mask_binary).sum().item()  # True Positives
+        fp = (pred_binary * (1 - mask_binary)).sum().item()  # False Positives
+        fn = ((1 - pred_binary) * mask_binary).sum().item()  # False Negatives
+
+        precision = tp / (tp + fp + 1e-8) if tp + fp > 0 else 0.0
+        recall = tp / (tp + fn + 1e-8) if tp + fn > 0 else 0.0
+
+        f1_score = (
+            (2 * precision * recall) / (precision + recall + 1e-8)
+            if precision + recall > 0
+            else 0.0
+        )
+        return f1_score
+
+    def compute_iou(
+        self, pred: torch.Tensor, mask: torch.Tensor, threshold: float
+    ) -> float:
         """
-        Compute the Pixel-level Area Under the Curve (AUC) score.
-
+        Compute IoU between predicted and ground truth masks.
         Args:
-            masks_flat (np.ndarray): Flattened ground truth binary masks. Shape (N,).
-            anomaly_map_flat (np.ndarray): Flattened predicted anomaly maps. Shape (N,).
-
+            pred: torch.Tensor (C, H, W)
+            mask: torch.Tensor (C, H, W)
+            threshold: float - Threshold to binarize predictions.
         Returns:
-            float: Pixel-level AUC score.
+            float: IoU.
         """
-        return roc_auc_score(masks_flat.ravel(), anomaly_map_flat.ravel())
+        pred_binary = (pred > threshold).float()
+        mask_binary = mask.float()
 
-    def compute_f1_score(self, masks: np.ndarray, anomaly_map: np.ndarray) -> float:
+        intersection = (pred_binary * mask_binary).sum()
+        union = pred_binary.sum() + mask_binary.sum() - intersection
+
+        iou = (intersection / union).item() if union > 0 else 0.0
+        return iou
+
+    def find_optimal_threshold(
+        self,
+        pred: torch.Tensor,
+        mask: torch.Tensor,
+        metric_fn: callable,
+        num_thresholds: int = 100,
+    ) -> float:
         """
-        Compute the F1 score based on binarized predictions.
-
+        Find the optimal threshold for a single sample using a given metric function.
         Args:
-            masks (np.ndarray): Ground truth binary masks. Shape (H, W) or (N, H, W).
-            anomaly_map (np.ndarray): Predicted anomaly maps. Shape (H, W) or (N, H, W).
-
+            pred: torch.Tensor (C, H, W) - Predicted values.
+            mask: torch.Tensor (C, H, W) - Ground truth mask.
+            metric_fn: callable - Metric function to optimize (e.g., IoU).
+            num_thresholds: int - Number of thresholds to test.
         Returns:
-            float: F1 score.
+            float: Optimal threshold.
         """
-        anomaly_map_binary = (anomaly_map > self.threshold).astype(np.float32).ravel()
-        masks_binary = masks.ravel()
-        return f1_score(masks_binary, anomaly_map_binary)
+        if metric_fn is None:
+            metric_fn = self.compute_iou
+            
+        if torch.unique(pred).numel() == 2:  # If already binary
+            return 0.5
 
-    def compute_iou(self, masks: np.ndarray, anomaly_map: np.ndarray) -> float:
+        thresholds = torch.linspace(
+            pred.min(), pred.max(), steps=num_thresholds, device=pred.device
+        )
+        best_threshold = 0
+        best_metric = 0
+
+        for threshold in thresholds:
+            metric = metric_fn(pred, mask, threshold=threshold.item())
+            if metric > best_metric:
+                best_metric = metric
+                best_threshold = threshold.item()
+
+        return best_threshold
+
+    def find_batch_optimal_threshold(
+        self,
+        preds: torch.Tensor,
+        masks: torch.Tensor,
+        metric_fn: callable,
+        num_thresholds: int = 100,
+    ) -> float:
         """
-        Compute the Intersection over Union (IoU) score.
-
+        Find the optimal threshold for an entire batch using a given metric function.
         Args:
-            masks (np.ndarray): Ground truth binary masks. Shape (H, W) or (N, H, W).
-            anomaly_map (np.ndarray): Predicted anomaly maps. Shape (H, W) or (N, H, W).
-
+            preds: torch.Tensor (B, C, H, W) - Predicted values for a batch.
+            masks: torch.Tensor (B, C, H, W) - Ground truth masks for a batch.
+            metric_fn: callable - Metric function to optimize (e.g., IoU).
+            num_thresholds: int - Number of thresholds to test.
         Returns:
-            float: IoU score.
+            float: Optimal threshold for the batch.
         """
-        anomaly_map_binary = (anomaly_map > self.threshold).astype(np.float32).ravel()
-        masks_binary = masks.ravel()
-        return jaccard_score(masks_binary, anomaly_map_binary)
+        preds_flat = preds.view(-1)
+        masks_flat = masks.view(-1)
 
-    def compute_all_metrics(
-        self, 
-        masks: np.ndarray, 
-        anomaly_map: np.ndarray, 
-        i_pred: np.ndarray, 
-        i_label: np.ndarray
+        if metric_fn is None:
+            metric_fn = self.compute_iou
+            
+        if torch.unique(preds_flat).numel() == 2:  # If already binary
+            return 0.5
+
+        thresholds = torch.linspace(
+            preds_flat.min(),
+            preds_flat.max(),
+            steps=num_thresholds,
+            device=preds.device,
+        )
+        best_threshold = 0
+        best_metric = 0
+
+        for threshold in thresholds:
+            metric = metric_fn(preds_flat, masks_flat, threshold=threshold.item())
+            if metric > best_metric:
+                best_metric = metric
+                best_threshold = threshold.item()
+
+        return best_threshold
+
+    def compute_sample_metrics(
+        self, pred: torch.Tensor, mask: torch.Tensor, threshold: float
     ) -> dict:
         """
-        Compute all evaluation metrics and return them in a dictionary.
-
+        Compute F1 and IoU for a single sample with a given threshold.
         Args:
-            masks (np.ndarray): Ground truth binary masks. Shape (H, W) or (N, H, W).
-            anomaly_map (np.ndarray): Predicted anomaly maps. Shape (H, W) or (N, H, W).
-            i_pred (np.ndarray): Predicted scores or probabilities for images. Shape (N,).
-            i_label (np.ndarray): Ground truth labels for images. Shape (N,).
-
+            pred: torch.Tensor (C, H, W) - Predicted values.
+            mask: torch.Tensor (C, H, W) - Ground truth mask.
+            threshold: float - Threshold to binarize predictions.
         Returns:
-            dict: A dictionary containing the computed metrics:
-                - "image_auc": Image-level AUC score.
-                - "pixel_auc": Pixel-level AUC score.
-                - "f1": F1 score.
-                - "iou": IoU score.
+            dict: F1, IoU, and the threshold used for this sample.
         """
-        image_auc = self.compute_image_auc(i_pred, i_label)
-        pixel_auc = self.compute_pixel_auc(masks, anomaly_map)
-        f1 = self.compute_f1_score(masks, anomaly_map)
-        iou = self.compute_iou(masks, anomaly_map)
+        f1 = self.compute_f1_score(pred, mask, threshold=threshold)
+        iou = self.compute_iou(pred, mask, threshold=threshold)
+
+        return {"f1": f1, "iou": iou}
+
+    def compute_metrics(
+        self,
+        preds: torch.Tensor,
+        masks: torch.Tensor,
+        mode: str = "batch",
+        num_thresholds: int = 100,
+    ) -> dict:
+        """
+        Compute F1 and IoU metrics for a batch of predictions and masks.
+        Args:
+            preds: torch.Tensor (B, C, H, W) - Predicted values.
+            masks: torch.Tensor (B, C, H, W) - Ground truth masks.
+            mode: str - "batch" for shared batch-level threshold or "sample" for per-sample threshold.
+            num_thresholds: int - Number of thresholds to test for optimal threshold calculation.
+        Returns:
+            dict: Batch-level metrics including sample-level metrics.
+        """
+        f1_scores = []
+        iou_scores = []
+        sample_results = []
+        # Determine threshold based on mode
+
+        if mode == "batch":
+            # Batch-level shared threshold
+            optimal_threshold = self.find_batch_optimal_threshold(
+                preds, masks, num_thresholds=num_thresholds
+            )
+            thresholds = [optimal_threshold] * preds.size(
+                0
+            )  # Same threshold for all samples
+        elif mode == "sample":
+            # Per-sample thresholds
+            thresholds = [
+                self.find_optimal_threshold(pred, mask, num_thresholds=num_thresholds)
+                for pred, mask in zip(preds, masks)
+            ]
+        else:
+            raise ValueError("Invalid mode. Choose 'batch' or 'sample'.")
+
+        # Compute metrics for each sample
+        for idx, (pred, mask, threshold) in enumerate(zip(preds, masks, thresholds)):
+            metrics = self.compute_sample_metrics(pred, mask, threshold)
+            f1_scores.append(metrics["f1"])
+            iou_scores.append(metrics["iou"])
+
+            sample_results.append(
+                {
+                    "sample_idx": idx,
+                    "threshold": threshold,
+                    "f1": metrics["f1"],
+                    "iou": metrics["iou"],
+                }
+            )
+
         return {
-            "image_auc": image_auc,
-            "pixel_auc": pixel_auc,
-            "f1": f1,
-            "iou": iou
+            "f1": np.mean(f1_scores),
+            "iou": np.mean(iou_scores),
+            "sample_metrics": sample_results,
         }
