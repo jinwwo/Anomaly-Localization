@@ -1,5 +1,6 @@
 import os
-from typing import Optional, List, Dict, Tuple, Any
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -69,6 +70,7 @@ OBJECTS = [
     "transistor",
     "zipper",
 ]
+
 TEXTURES = ["carpet", "grid", "leather", "tile", "wood"]
 
 
@@ -84,7 +86,7 @@ class MVtecDataset(Dataset):
             transform (Optional[Any]): Transformations to be applied to images. Defaults to resizing to 224x224.
             random_seed (Optional[int]): Random seed for reproducibility. Defaults to None.
         """
-        self.root_dir = root_dir
+        self.root_dir = Path(root_dir).as_posix()
         self.transform = transforms.Resize(
             (224, 224), interpolation=transforms.InterpolationMode.BICUBIC
         )
@@ -103,7 +105,7 @@ class MVtecDataset(Dataset):
         self.paths = []
         for root, _, files in os.walk(root_dir):
             for file in files:
-                file_path = os.path.join(root, file)
+                file_path = Path(os.path.join(root, file)).as_posix()
                 if "train" in file_path and "good" in file_path and "png" in file:
                     self.paths.append(file_path)
 
@@ -137,7 +139,7 @@ class MVtecDataset(Dataset):
         img_path = self.paths[index]
         img_normal = self.transform(Image.open(img_path).convert("RGB"))
         class_name = img_path.split("/")[-4]
-        unique_seed = index
+        unique_seed = index # seed for reproductivity
 
         self_sup_args = {
             "width_bounds_pct": WIDTH_BOUNDS_PCT.get(class_name),
