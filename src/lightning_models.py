@@ -15,7 +15,7 @@ import wandb
 
 from .models.swin_transformer import SwinTransformer
 from .utils.loss import BinaryDiceLoss, FocalLoss, InfoNCELoss
-from .utils.metric import MetricsComputer
+from .utils.metric import MetricComputer
 
 
 class FOCALightning(L.LightningModule):
@@ -56,7 +56,7 @@ class FOCALightning(L.LightningModule):
             features_only=True
         )
         self.infoNCE = InfoNCELoss()
-        self.metrics = MetricsComputer()
+        self.metrics = MetricComputer()
         self.clustering = self._init_clustering(cfg.experiment)
 
         self.layers_to_extract = cfg.experiment.layers_to_extract
@@ -76,7 +76,6 @@ class FOCALightning(L.LightningModule):
         Returns:
             torch.Tensor: The computed training loss.
         """
-        
         inputs = torch.stack(batch['images'][1::2], dim=0) # [abnormal_1, abnormal_2, ...]
         masks = torch.stack(batch['masks'][1::2], dim=0) # [mask_abnormal_1, mask_abnormal_2, ...]
 
@@ -126,13 +125,13 @@ class FOCALightning(L.LightningModule):
 
         anomaly_map = torch.cat(results, dim=0).permute(0, 3, 1, 2) # (B, 1, H, W)
 
-        masks_flat = masks.view(masks.size(0), -1).cpu().numpy()
-        anomaly_map_flat = anomaly_map.view(anomaly_map.size(0), -1).cpu().numpy()
+        # masks_flat = masks.view(masks.size(0), -1).cpu().numpy()
+        # anomaly_map_flat = anomaly_map.view(anomaly_map.size(0), -1).cpu().numpy()
 
-        i_pred = anomaly_map_flat.max(axis=1)
-        i_label = masks_flat.max(axis=1)
+        # i_pred = anomaly_map_flat.max(axis=1)
+        # i_label = masks_flat.max(axis=1)
         
-        metrics = self.metrics.compute_all_metrics(masks_flat, anomaly_map_flat, i_pred, i_label)
+        metrics = self.metrics.compute_metrics(preds=anomaly_map, masks=masks)
 
         num_samples_to_log = min(4, anomaly_map.size(0))  # Log up to 4 samples
         inputs_resized = F.interpolate(inputs, size=anomaly_map.shape[-2:], mode="bilinear", align_corners=False)  # (B, C, H, W)
