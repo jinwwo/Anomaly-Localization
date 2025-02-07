@@ -11,9 +11,9 @@ from torch.utils.data import DataLoader, Subset, random_split
 
 import wandb
 
-from .datasets.mvtec import MVtecDataset
-from .lightning_models import FOCALightning
-from .utils.utils import to_container
+from src.datasets.mvtec import MVtecDataset
+from src.lightning_models import FOCALightning
+from src.utils.utils import to_container, wandb_login
 
 
 def prepare_dataset(cfg: DictConfig) -> Tuple[DataLoader, DataLoader]:
@@ -72,6 +72,7 @@ def prepare_logger(cfg: DictConfig) -> WandbLogger:
 @hydra.main(version_base=None, config_path="configs", config_name="default")
 def main(cfg: DictConfig) -> None:
     """Main training function."""
+    wandb_login(key=cfg.wandb_key)
     train_loader, valid_loader = prepare_dataset(cfg)
 
     print(OmegaConf.to_yaml(cfg))
