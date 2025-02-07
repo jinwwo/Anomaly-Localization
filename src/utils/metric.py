@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import torch
 
@@ -62,7 +64,7 @@ class MetricComputer:
         self,
         pred: torch.Tensor,
         mask: torch.Tensor,
-        metric_fn: callable,
+        metric_fn: Optional[callable] = None,
         num_thresholds: int = 100,
     ) -> float:
         """
@@ -99,7 +101,7 @@ class MetricComputer:
         self,
         preds: torch.Tensor,
         masks: torch.Tensor,
-        metric_fn: callable,
+        metric_fn: Optional[callable] = None,
         num_thresholds: int = 100,
     ) -> float:
         """
@@ -161,6 +163,7 @@ class MetricComputer:
         masks: torch.Tensor,
         mode: str = "batch",
         num_thresholds: int = 100,
+        log_sample: bool = False
     ) -> dict:
         """
         Compute F1 and IoU metrics for a batch of predictions and masks.
@@ -169,8 +172,9 @@ class MetricComputer:
             masks: torch.Tensor (B, C, H, W) - Ground truth masks.
             mode: str - "batch" for shared batch-level threshold or "sample" for per-sample threshold.
             num_thresholds: int - Number of thresholds to test for optimal threshold calculation.
+            log_sample: bool - Whether to return per-sample metrics.
         Returns:
-            dict: Batch-level metrics including sample-level metrics.
+            dict: Batch-level metrics (and sample-level metrics if log_sample=True).
         """
         f1_scores = []
         iou_scores = []
@@ -199,18 +203,23 @@ class MetricComputer:
             metrics = self.compute_sample_metrics(pred, mask, threshold)
             f1_scores.append(metrics["f1"])
             iou_scores.append(metrics["iou"])
+            
+            if log_sample:
+                sample_results.append(
+                    {
+                        "sample_idx": idx,
+                        "threshold": threshold,
+                        "f1": metrics["f1"],
+                        "iou": metrics["iou"],
+                    }
+                )
 
-            sample_results.append(
-                {
-                    "sample_idx": idx,
-                    "threshold": threshold,
-                    "f1": metrics["f1"],
-                    "iou": metrics["iou"],
-                }
-            )
-
-        return {
+        metrics_result = {
             "f1": np.mean(f1_scores),
-            "iou": np.mean(iou_scores),
-            "sample_metrics": sample_results,
+            "iou": np.mean(iou_scores)
         }
+
+        if log_sample:
+            metrics_result["sample_metrics"] = sample_results
+
+        return metrics_result
