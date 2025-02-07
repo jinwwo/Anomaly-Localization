@@ -7,7 +7,7 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 
 
-def login_wandb(key: Optional[str] = None) -> bool:
+def wandb_login(key: Optional[str] = None) -> bool:
     """
     Log in to Weights & Biases (wandb) using an API key.
 
