@@ -5,7 +5,6 @@ matplotlib==3.10.0
 numpy==2.2.1
 omegaconf==2.3.0
 opencv-python-headless==4.10.0.84
-Pillow==11.0.0
 scikit-image==0.24.0
 scikit-learn==1.6.0
 timm==1.0.12
